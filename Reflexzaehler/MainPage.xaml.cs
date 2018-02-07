@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -42,6 +43,7 @@ namespace Reflexzaehler
         private SolidColorBrush redBrush = new SolidColorBrush(Windows.UI.Colors.Red);
         private SolidColorBrush grayBrush = new SolidColorBrush(Windows.UI.Colors.LightGray);
         private int state = 0;
+        private int counter = 0;
 
         //private ThingSpeakClient theThingspeakClient = new ThingSpeakClient(false);
 
@@ -55,7 +57,7 @@ namespace Reflexzaehler
 
             // create timer
             timer = new DispatcherTimer();
-            timer.Interval = TimeSpan.FromMilliseconds(500);
+            timer.Interval = TimeSpan.FromMilliseconds(50);
             timer.Tick += Timer_Tick;
 
             // init StatusLED
@@ -70,6 +72,7 @@ namespace Reflexzaehler
 
         }
 
+        
         private async void MainPage_Loaded(object sender, Windows.UI.Xaml.RoutedEventArgs e)
         {
             string selector = SpiDevice.GetDeviceSelector();
@@ -95,6 +98,7 @@ namespace Reflexzaehler
                 Application.Current.Exit();
             }
         }
+        
 
         /* public async void SendToThingspeak()
         {
@@ -162,18 +166,27 @@ namespace Reflexzaehler
 
         private void Timer_Tick(object sender, object e)
         {
+            
             int adcValue;
+            
+            string valueWithCounter;
 
             adcValue = ReadValueFromMCP3002(0); // IR photo transistor @ channel 0 of MCP 3002
-
+            counter++;
+            valueWithCounter = counter.ToString();
+            valueWithCounter += ", ";
+            valueWithCounter += adcValue.ToString();
+            ValueListBox.Items.Add(valueWithCounter);
+            ValueListBox.UpdateLayout();
+            ValueListBox.ScrollIntoView(valueWithCounter);
 
             // trigger state LED
-            if (state == 0)
+            if ((adcValue >= 50 ) && (state == 0))
             {
                 state = 1;
                 SwitchStateLED(ref pinLED_Active, ref pinLED_Active_Value, ref LED_Active);
             }
-            else
+            if ((adcValue < 50 ) && ( state == 1))
             {
                 state = 0;
                 SwitchStateLED(ref pinLED_Active, ref pinLED_Active_Value, ref LED_Active);
