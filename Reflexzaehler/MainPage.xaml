@@ -5,11 +5,17 @@
     xmlns:local="using:Reflexzaehler"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:WinRT_Charting ="using:WinRTXamlToolkit.Controls.DataVisualization.Charting"
     mc:Ignorable="d">
 
     <Grid Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
         <Ellipse x:Name="LED_Active" Fill="LightGray" Stroke="Black" Width="47" Margin="155,165,1718,867"  />
-        <ListBox x:Name="ValueListBox"  Margin="565,63,1065,90" RenderTransformOrigin="0.532,0.489" />
-
+        <WinRT_Charting:Chart x:Name="LineChart1" Title="Reflex" Width="500" Height="300" >
+            <WinRT_Charting:LineSeries Title="T1"
+                        ItemsSource="{Binding Items}"
+                        IndependentValueBinding="{Binding Name}"
+                        DependentValueBinding="{Binding Value}"
+                        IsSelectionEnabled="True"/>
+        </WinRT_Charting:Chart>
     </Grid>
 </Page>

@@ -20,6 +20,8 @@ using Windows.Devices.Gpio;
 using Windows.Devices.Spi;
 using Windows.Devices.Enumeration;
 
+using WinRTXamlToolkit.Controls.DataVisualization.Charting;
+
 
 // using ThingSpeakWinRT;
 // using System.Threading.Tasks;
@@ -33,6 +35,14 @@ namespace Reflexzaehler
     public sealed partial class MainPage : Page
     {
 
+        public class NameValueItem
+        {
+            public string Name { get; set; }
+            public int Value { get; set; }
+        }
+
+        // Random _random = new Random();
+
         private GpioController gpio;
         private GpioPin pinLED_Active;
         private GpioPinValue pinLED_Active_Value;
@@ -44,6 +54,8 @@ namespace Reflexzaehler
         private SolidColorBrush grayBrush = new SolidColorBrush(Windows.UI.Colors.LightGray);
         private int state = 0;
         private int counter = 0;
+
+        private List<NameValueItem> items1;
 
         //private ThingSpeakClient theThingspeakClient = new ThingSpeakClient(false);
 
@@ -63,6 +75,27 @@ namespace Reflexzaehler
             // init StatusLED
             gpio = GpioController.GetDefault();
             iErr = InitStateLED( 4 );
+
+            // chart
+            items1 = new List<NameValueItem>();
+            for (int i = 1; i <= 20; i++)
+            {
+                items1.Add(new NameValueItem { Name = "", Value = 0 }); // = _random.Next(10, 100) }); 
+            }
+            
+            // Supply items to the series
+            ((LineSeries)this.LineChart1.Series[0]).ItemsSource = items1;
+            
+            // [OPTIONAL] Change Y-Axis range from 0 to 1000 with interval of 250 of Series[0]
+            ((LineSeries)this.LineChart1.Series[0]).DependentRangeAxis =
+               new LinearAxis
+               {
+                   Minimum = 0,
+                   Maximum = 100,
+                   Orientation = AxisOrientation.Y,
+                   Interval = 20,
+                   ShowGridLines = true
+               };
 
             // init done
             if ( iErr == 0)
@@ -132,13 +165,13 @@ namespace Reflexzaehler
             {
                 pinValue = GpioPinValue.Low;
                 pin.Write(pinValue);
-                LED.Fill = redBrush;
+                LED.Fill = grayBrush;
             }
             else
             {
                 pinValue = GpioPinValue.High;
                 pin.Write(pinValue);
-                LED.Fill = grayBrush;
+                LED.Fill = redBrush;
             }
         }
 
@@ -169,16 +202,23 @@ namespace Reflexzaehler
             
             int adcValue;
             
-            string valueWithCounter;
+            // string valueWithCounter;
 
             adcValue = ReadValueFromMCP3002(0); // IR photo transistor @ channel 0 of MCP 3002
             counter++;
+            /*
             valueWithCounter = counter.ToString();
             valueWithCounter += ", ";
             valueWithCounter += adcValue.ToString();
             ValueListBox.Items.Add(valueWithCounter);
             ValueListBox.UpdateLayout();
             ValueListBox.ScrollIntoView(valueWithCounter);
+            */
+
+            items1.RemoveAt(0);
+            items1.Add(new NameValueItem { Name = counter.ToString(), Value = adcValue }); // = _random.Next(10, 100) });
+            ((LineSeries)this.LineChart1.Series[0]).Refresh();
+
 
             // trigger state LED
             if ((adcValue >= 50 ) && (state == 0))
