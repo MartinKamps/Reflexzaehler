@@ -7,6 +7,7 @@ using System.Linq;
 using System.Runtime.InteropServices.WindowsRuntime;
 using Windows.Foundation;
 using Windows.Foundation.Collections;
+using Windows.UI;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Controls.Primitives;
@@ -15,12 +16,12 @@ using Windows.UI.Xaml.Input;
 using Windows.UI.Xaml.Media;
 using Windows.UI.Xaml.Navigation;
 using Windows.UI.Xaml.Shapes;
-
+// Hardware
 using Windows.Devices.Gpio;
 using Windows.Devices.Spi;
 using Windows.Devices.Enumeration;
-
-using WinRTXamlToolkit.Controls.DataVisualization.Charting;
+// Win2D
+using Microsoft.Graphics.Canvas.UI.Xaml;
 
 
 // using ThingSpeakWinRT;
@@ -35,14 +36,6 @@ namespace Reflexzaehler
     public sealed partial class MainPage : Page
     {
 
-        public class NameValueItem
-        {
-            public string Name { get; set; }
-            public int Value { get; set; }
-        }
-
-        // Random _random = new Random();
-
         private GpioController gpio;
         private GpioPin pinLED_Active;
         private GpioPinValue pinLED_Active_Value;
@@ -52,10 +45,11 @@ namespace Reflexzaehler
         private DispatcherTimer timer;
         private SolidColorBrush redBrush = new SolidColorBrush(Windows.UI.Colors.Red);
         private SolidColorBrush grayBrush = new SolidColorBrush(Windows.UI.Colors.LightGray);
-        private int state = 0;
-        private int counter = 0;
+        private int LEDstate = 0;
+        private int MaxElementsAtChart = 1920 / 4;
 
-        private List<NameValueItem> items1;
+        private readonly List<double> _data = new List<double>();
+        private readonly ChartRenderer _chartRenderer;
 
         //private ThingSpeakClient theThingspeakClient = new ThingSpeakClient(false);
 
@@ -69,7 +63,7 @@ namespace Reflexzaehler
 
             // create timer
             timer = new DispatcherTimer();
-            timer.Interval = TimeSpan.FromMilliseconds(50);
+            timer.Interval = TimeSpan.FromMilliseconds(20);
             timer.Tick += Timer_Tick;
 
             // init StatusLED
@@ -77,25 +71,8 @@ namespace Reflexzaehler
             iErr = InitStateLED( 4 );
 
             // chart
-            items1 = new List<NameValueItem>();
-            for (int i = 1; i <= 20; i++)
-            {
-                items1.Add(new NameValueItem { Name = "", Value = 0 }); // = _random.Next(10, 100) }); 
-            }
-            
-            // Supply items to the series
-            ((LineSeries)this.LineChart1.Series[0]).ItemsSource = items1;
-            
-            // [OPTIONAL] Change Y-Axis range from 0 to 1000 with interval of 250 of Series[0]
-            ((LineSeries)this.LineChart1.Series[0]).DependentRangeAxis =
-               new LinearAxis
-               {
-                   Minimum = 0,
-                   Maximum = 100,
-                   Orientation = AxisOrientation.Y,
-                   Interval = 20,
-                   ShowGridLines = true
-               };
+            _data.Add(0);
+            _chartRenderer = new ChartRenderer();
 
             // init done
             if ( iErr == 0)
@@ -131,7 +108,20 @@ namespace Reflexzaehler
                 Application.Current.Exit();
             }
         }
-        
+
+        private void Canvas_OnDraw(CanvasControl sender, CanvasDrawEventArgs args)
+        {
+            if (_data.Count > (int)canvas.ActualWidth)
+            {
+                _data.RemoveRange(0, _data.Count - (int)canvas.ActualWidth);
+            }
+
+            args.DrawingSession.Clear(Colors.White);
+            _chartRenderer.RenderAxes(canvas, args);
+            _chartRenderer.RenderData(canvas, args, Colors.DarkOrange, 1, _data, false );
+            canvas.Invalidate();
+        }
+
 
         /* public async void SendToThingspeak()
         {
@@ -199,38 +189,25 @@ namespace Reflexzaehler
 
         private void Timer_Tick(object sender, object e)
         {
+            // read value
+            int adcValue = ReadValueFromMCP3002(0); // IR photo transistor @ channel 0 of MCP 3002
+
+            // move to history
+            if (_data.Count() >= MaxElementsAtChart) _data.RemoveAt(0);
+            _data.Add(adcValue);
             
-            int adcValue;
-            
-            // string valueWithCounter;
-
-            adcValue = ReadValueFromMCP3002(0); // IR photo transistor @ channel 0 of MCP 3002
-            counter++;
-            /*
-            valueWithCounter = counter.ToString();
-            valueWithCounter += ", ";
-            valueWithCounter += adcValue.ToString();
-            ValueListBox.Items.Add(valueWithCounter);
-            ValueListBox.UpdateLayout();
-            ValueListBox.ScrollIntoView(valueWithCounter);
-            */
-
-            items1.RemoveAt(0);
-            items1.Add(new NameValueItem { Name = counter.ToString(), Value = adcValue }); // = _random.Next(10, 100) });
-            ((LineSeries)this.LineChart1.Series[0]).Refresh();
-
-
             // trigger state LED
-            if ((adcValue >= 50 ) && (state == 0))
+            if ((adcValue >= 50 ) && (LEDstate == 0))
             {
-                state = 1;
+                LEDstate = 1;
                 SwitchStateLED(ref pinLED_Active, ref pinLED_Active_Value, ref LED_Active);
             }
-            if ((adcValue < 50 ) && ( state == 1))
+            if ((adcValue < 50 ) && (LEDstate == 1))
             {
-                state = 0;
+                LEDstate = 0;
                 SwitchStateLED(ref pinLED_Active, ref pinLED_Active_Value, ref LED_Active);
             }
         }
+        
     }
 }
