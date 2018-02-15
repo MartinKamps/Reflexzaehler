@@ -22,10 +22,9 @@ using Windows.Devices.Spi;
 using Windows.Devices.Enumeration;
 // Win2D
 using Microsoft.Graphics.Canvas.UI.Xaml;
-
-
-// using ThingSpeakWinRT;
-// using System.Threading.Tasks;
+// thingspeak
+using ThingSpeakWinRT;
+using System.Threading.Tasks;
 
 namespace Reflexzaehler
 {
@@ -35,49 +34,77 @@ namespace Reflexzaehler
     /// </summary>
     public sealed partial class MainPage : Page
     {
-
+        // hardware - LED
         private GpioController gpio;
         private GpioPin pinLED_Active;
         private GpioPinValue pinLED_Active_Value;
 
+        // hardware - ADC
         private SpiDevice spiDevice;
+        
+        // detection settings
+        private int turnsPerKWh = 96;
+        private int reflectionThreshold = 50;
 
-        private DispatcherTimer timer;
+        // thingspeak - data storage
+        private ThingSpeakClient theThingspeakClient = new ThingSpeakClient(false);
+
+        // Timer
+        private DispatcherTimer timer_20ms;
+        private DispatcherTimer timer_60s;
+
+        // screen
         private SolidColorBrush redBrush = new SolidColorBrush(Windows.UI.Colors.Red);
         private SolidColorBrush grayBrush = new SolidColorBrush(Windows.UI.Colors.LightGray);
-        private int LEDstate = 0;
+        
+        // chart
         private int MaxElementsAtChart = 1920 / 4;
+        private readonly List<double> adcValues = new List<double>();
+        private readonly ChartRenderer chartRenderer;
 
-        private readonly List<double> _data = new List<double>();
-        private readonly ChartRenderer _chartRenderer;
+        // times
+        private TimeSpan lastTurnIntervalLength = new TimeSpan( 0 );
+        private DateTime lastPosEdgeTime = new DateTime( 0 );
 
-        //private ThingSpeakClient theThingspeakClient = new ThingSpeakClient(false);
-
+        // states
+        private int LEDstate = 0;
+        private long overallTurns = 0;
+        private double actualPowerCounter = 0;
+        private Boolean firstPosEdgeDetected = false;
+        
         public MainPage()
         {
             int iErr = 0;
 
             this.InitializeComponent();
+            // insert SPI init
             Loaded += MainPage_Loaded;
-            
 
-            // create timer
-            timer = new DispatcherTimer();
-            timer.Interval = TimeSpan.FromMilliseconds(20);
-            timer.Tick += Timer_Tick;
+            // chart
+            adcValues.Add(0);   // start value at list
+            chartRenderer = new ChartRenderer();
 
             // init StatusLED
             gpio = GpioController.GetDefault();
             iErr = InitStateLED( 4 );
 
-            // chart
-            _data.Add(0);
-            _chartRenderer = new ChartRenderer();
+            if (iErr == 0)
+            {   // create timers
+                // 20ms
+                timer_20ms = new DispatcherTimer();
+                timer_20ms.Interval = TimeSpan.FromMilliseconds(20);
+                timer_20ms.Tick += Timer20ms_Tick;
+                // 60s
+                timer_60s = new DispatcherTimer();
+                timer_60s.Interval = TimeSpan.FromSeconds(60);
+                timer_60s.Tick += Timer60s_Tick;
+            }
 
             // init done
             if ( iErr == 0)
             {
-                timer.Start();
+                timer_20ms.Start();
+                // timer_60s.Start();
             }
 
         }
@@ -111,25 +138,24 @@ namespace Reflexzaehler
 
         private void Canvas_OnDraw(CanvasControl sender, CanvasDrawEventArgs args)
         {
-            if (_data.Count > (int)canvas.ActualWidth)
+            if (adcValues.Count > (int)canvas.ActualWidth)
             {
-                _data.RemoveRange(0, _data.Count - (int)canvas.ActualWidth);
+                adcValues.RemoveRange(0, adcValues.Count - (int)canvas.ActualWidth);
             }
 
             args.DrawingSession.Clear(Colors.White);
-            _chartRenderer.RenderAxes(canvas, args);
-            _chartRenderer.RenderData(canvas, args, Colors.DarkOrange, 1, _data, false );
+            chartRenderer.RenderAxes(canvas, args);
+            chartRenderer.RenderData(canvas, args, Colors.DarkOrange, 1, adcValues, false );
             canvas.Invalidate();
         }
 
 
-        /* public async void SendToThingspeak()
+        public async void SendToThingspeakChannel( double counterValue )
         {
-            ThingSpeakFeed dataFeed = new ThingSpeakFeed { Field1 = "58.27", Field2 = "32.59" };
-            dataFeed = await theThingspeakClient.UpdateFeedAsync("<Your Write API Key>", dataFeed);
-
+            string string1 = counterValue.ToString();
+            // ThingSpeakFeed dataFeed = new ThingSpeakFeed { Field1 = string1 };
+            // dataFeed = await theThingspeakClient.UpdateFeedAsync("2MAABBB6RE0H9K3X", dataFeed);
         }
-        */
 
         private int InitStateLED(int pin)
         {
@@ -187,27 +213,59 @@ namespace Reflexzaehler
             return value;
         }
 
-        private void Timer_Tick(object sender, object e)
+        private void Timer20ms_Tick(object sender, object e)
         {
+            // inits
+            Boolean posEdge = false;
+
             // read value
             int adcValue = ReadValueFromMCP3002(0); // IR photo transistor @ channel 0 of MCP 3002
 
-            // move to history
-            if (_data.Count() >= MaxElementsAtChart) _data.RemoveAt(0);
-            _data.Add(adcValue);
-            
+            // move current value to history
+            if (adcValues.Count() >= MaxElementsAtChart) adcValues.RemoveAt(0);
+            adcValues.Add(adcValue);
+
             // trigger state LED
-            if ((adcValue >= 50 ) && (LEDstate == 0))
+            
+            if ((adcValue >= reflectionThreshold) && (LEDstate == 0))
             {
+                posEdge = true;
                 LEDstate = 1;
                 SwitchStateLED(ref pinLED_Active, ref pinLED_Active_Value, ref LED_Active);
             }
-            if ((adcValue < 50 ) && (LEDstate == 1))
+            if ((adcValue < reflectionThreshold) && (LEDstate == 1))
             {
                 LEDstate = 0;
                 SwitchStateLED(ref pinLED_Active, ref pinLED_Active_Value, ref LED_Active);
             }
+
+            // calculations
+            if( posEdge )
+            {
+                if (firstPosEdgeDetected == false)
+                {
+                    //init state
+                    firstPosEdgeDetected = true;
+                    lastPosEdgeTime = DateTime.Now;
+                }
+                else
+                {
+                    lastTurnIntervalLength = lastPosEdgeTime - DateTime.Now;
+                    lastPosEdgeTime = DateTime.Now;
+
+                    overallTurns++;
+                    actualPowerCounter += (double)(1 / turnsPerKWh);
+                }
+            }
         }
-        
+
+        private void Timer60s_Tick(object sender, object e)
+        {
+            // take current values and send to thinkspeak
+            SendToThingspeakChannel(actualPowerCounter);
+        }
+
     }
 }
+
+ 

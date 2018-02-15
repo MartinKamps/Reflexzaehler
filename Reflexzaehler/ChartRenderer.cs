@@ -19,7 +19,7 @@ namespace Reflexzaehler
             
             using (var cpb = new CanvasPathBuilder(args.DrawingSession))
             {
-                // Horizontal line
+                // Horizontal base line
                 cpb.BeginFigure(new Vector2( 1, height));
                 cpb.AddLine(new Vector2(width, height));
                 cpb.EndFigure(CanvasFigureLoop.Open);
@@ -29,56 +29,13 @@ namespace Reflexzaehler
 
             using (var cpb = new CanvasPathBuilder(args.DrawingSession))
             {
-                // Horizontal line
-                cpb.BeginFigure(new Vector2(1, (float)(0.1 * height)));
-                cpb.AddLine(new Vector2(width, (float)(0.1 * height)));
-                cpb.EndFigure(CanvasFigureLoop.Open);
-
-                // Horizontal line
-                cpb.BeginFigure(new Vector2(1, (float)(0.2 * height)));
-                cpb.AddLine(new Vector2(width, (float)(0.2 * height)));
-                cpb.EndFigure(CanvasFigureLoop.Open);
+                for (int n = 1; n < 10; n++)
+                {   // Horizontal seperator line
+                    cpb.BeginFigure(new Vector2(1, (float)(0.1 * n * height)));
+                    cpb.AddLine(new Vector2(width, (float)(0.1 * n * height)));
+                    cpb.EndFigure(CanvasFigureLoop.Open);
+                }
                 
-                // Horizontal line
-                cpb.BeginFigure(new Vector2(1, (float)(0.3 * height)));
-                cpb.AddLine(new Vector2(width, (float)(0.3 * height)));
-                cpb.EndFigure(CanvasFigureLoop.Open);
-
-                // Horizontal line
-                cpb.BeginFigure(new Vector2(1, (float)(0.4 * height)));
-                cpb.AddLine(new Vector2(width, (float)(0.4 * height)));
-                cpb.EndFigure(CanvasFigureLoop.Open);
-
-                // Horizontal line
-                cpb.BeginFigure(new Vector2(1, (float)(0.5 * height)));
-                cpb.AddLine(new Vector2(width, (float)(0.5 * height)));
-                cpb.EndFigure(CanvasFigureLoop.Open);
-
-                // Horizontal line
-                cpb.BeginFigure(new Vector2(1, (float)(0.6 * height)));
-                cpb.AddLine(new Vector2(width, (float)(0.6 * height)));
-                cpb.EndFigure(CanvasFigureLoop.Open);
-
-                // Horizontal line
-                cpb.BeginFigure(new Vector2(1, (float)(0.7 * height)));
-                cpb.AddLine(new Vector2(width, (float)(0.7 * height)));
-                cpb.EndFigure(CanvasFigureLoop.Open);
-
-                // Horizontal line
-                cpb.BeginFigure(new Vector2(1, (float)(0.8 * height)));
-                cpb.AddLine(new Vector2(width, (float)(0.8 * height)));
-                cpb.EndFigure(CanvasFigureLoop.Open);
-
-                // Horizontal line
-                cpb.BeginFigure(new Vector2(1, (float)(0.9 * height)));
-                cpb.AddLine(new Vector2(width, (float)(0.9 * height)));
-                cpb.EndFigure(CanvasFigureLoop.Open);
-
-                // Horizontal line
-                cpb.BeginFigure(new Vector2(1, (float)(1 * height)));
-                cpb.AddLine(new Vector2(width, (float)(1 * height)));
-                cpb.EndFigure(CanvasFigureLoop.Open);
-
                 args.DrawingSession.DrawGeometry(CanvasGeometry.CreatePath(cpb), Colors.LightGray, 1);
             }
 
@@ -86,7 +43,7 @@ namespace Reflexzaehler
 
             using (var cpb = new CanvasPathBuilder(args.DrawingSession))
             {
-                // Vertical line
+                // Vertical base line
                 cpb.BeginFigure(new Vector2(1, height));
                 cpb.AddLine(new Vector2(1, 1));
                 cpb.EndFigure(CanvasFigureLoop.Open);
