@@ -9,7 +9,13 @@
     mc:Ignorable="d">
 
     <Grid Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
-        <Ellipse x:Name="LED_Active" Fill="LightGray" Stroke="Black" Margin="86,933,1781,96" RenderTransformOrigin="0.532,0.5"  />
+        <Ellipse x:Name="LED_Active" Fill="LightGray" Stroke="Black" Margin="125,861,1730,153" RenderTransformOrigin="0.532,0.5"  />
         <canvas:CanvasControl x:Name="canvas" Margin="5,5,5,284" Draw="Canvas_OnDraw" />
+        <TextBlock HorizontalAlignment="Left" Margin="542,864,0,0" Text="Zählerstand:" VerticalAlignment="Top" FontSize="36"/>
+        <TextBlock HorizontalAlignment="Left" Margin="542,929,0,0" Text="Umdrehungen:" VerticalAlignment="Top" FontSize="36"/>
+        <TextBox x:Name="powerCounterValue" HorizontalAlignment="Left" Margin="929,863,0,0" Text="0" VerticalAlignment="Top" Height="56" Width="341" FontSize="36" InputScope="Number"/>
+        <TextBlock x:Name="turnCount" HorizontalAlignment="Left" Margin="929,929,0,0" Text="0" VerticalAlignment="Top" FontSize="36"/>
+        <TextBlock HorizontalAlignment="Left" Margin="542,1014,0,0" Text="Startdatum:" VerticalAlignment="Top" FontSize="36"/>
+        <TextBlock x:Name="startTime" HorizontalAlignment="Left" Margin="929,1014,0,0" Text="0" VerticalAlignment="Top" FontSize="36"/>
     </Grid>
 </Page>

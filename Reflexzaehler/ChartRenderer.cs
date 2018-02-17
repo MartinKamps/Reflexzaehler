@@ -51,18 +51,19 @@ namespace Reflexzaehler
                 args.DrawingSession.DrawGeometry(CanvasGeometry.CreatePath(cpb), Colors.Black, 2);
             }
 
-            args.DrawingSession.DrawText("100", 5, 5, Colors.Black);
+            args.DrawingSession.DrawText("Reflexion: 100p", 5, 5, Colors.DarkOrange);
+            args.DrawingSession.DrawText("Sekunden pro Umdrehung - 300s", 5, 25, Colors.DarkGreen);
         }
 
-        public void RenderData(CanvasControl canvas, CanvasDrawEventArgs args, Color color, float thickness, List<double> data, bool renderArea)
+        public void RenderData(CanvasControl canvas, CanvasDrawEventArgs args, Color color, float thickness, List<double> data, bool renderArea, int steps, int factor)
         {
             using (var cpb = new CanvasPathBuilder(args.DrawingSession))
             {
-                cpb.BeginFigure(new Vector2(0, (float)(canvas.ActualHeight * ( 1 - (data[0] / 100)))));
+                cpb.BeginFigure(new Vector2(0, (float)(canvas.ActualHeight * ( 1 - (data[0] / factor)))));
 
                 for (int i = 1; i < data.Count; i++)
                 {
-                    cpb.AddLine(new Vector2(i * 4, (float)(canvas.ActualHeight * ( 1 - (data[i] / 100)))));
+                    cpb.AddLine(new Vector2(i * steps, (float)(canvas.ActualHeight * ( 1 - (data[i] / factor))) + 2 ));
                 }
 
                 if (renderArea)

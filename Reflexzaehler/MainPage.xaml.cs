@@ -52,19 +52,25 @@ namespace Reflexzaehler
         // Timer
         private DispatcherTimer timer_20ms;
         private DispatcherTimer timer_60s;
+        private DispatcherTimer timer_1s;
 
         // screen
         private SolidColorBrush redBrush = new SolidColorBrush(Windows.UI.Colors.Red);
         private SolidColorBrush grayBrush = new SolidColorBrush(Windows.UI.Colors.LightGray);
-        
+
         // chart
-        private int MaxElementsAtChart = 1920 / 4;
+        private int adcValuesScaleFactor = 4;
+        private int screenResoultionX = 1920;
+        private int maxAdcValuesAtChart = 0;
         private readonly List<double> adcValues = new List<double>();
+        private int maxTurnPeriodsAtChart = 0;
+        private readonly List<double> turnPeriods = new List<double>();
         private readonly ChartRenderer chartRenderer;
 
         // times
         private TimeSpan lastTurnIntervalLength = new TimeSpan( 0 );
         private DateTime lastPosEdgeTime = new DateTime( 0 );
+        private DateTime startCounting = new DateTime(0);
 
         // states
         private int LEDstate = 0;
@@ -76,17 +82,24 @@ namespace Reflexzaehler
         {
             int iErr = 0;
 
+            maxAdcValuesAtChart = screenResoultionX / adcValuesScaleFactor;
+            maxTurnPeriodsAtChart = screenResoultionX;
+
             this.InitializeComponent();
             // insert SPI init
             Loaded += MainPage_Loaded;
 
             // chart
             adcValues.Add(0);   // start value at list
+            turnPeriods.Add(0); // start value at list
             chartRenderer = new ChartRenderer();
 
             // init StatusLED
             gpio = GpioController.GetDefault();
             iErr = InitStateLED( 4 );
+
+            startCounting = DateTime.Now;
+            startTime.Text = startCounting.ToString();
 
             if (iErr == 0)
             {   // create timers
@@ -98,13 +111,18 @@ namespace Reflexzaehler
                 timer_60s = new DispatcherTimer();
                 timer_60s.Interval = TimeSpan.FromSeconds(60);
                 timer_60s.Tick += Timer60s_Tick;
+                // 1s
+                timer_1s = new DispatcherTimer();
+                timer_1s.Interval = TimeSpan.FromSeconds(1);
+                timer_1s.Tick += Timer1s_Tick;
             }
 
             // init done
             if ( iErr == 0)
             {
                 timer_20ms.Start();
-                // timer_60s.Start();
+                timer_60s.Start();
+                timer_1s.Start();
             }
 
         }
@@ -145,13 +163,16 @@ namespace Reflexzaehler
 
             args.DrawingSession.Clear(Colors.White);
             chartRenderer.RenderAxes(canvas, args);
-            chartRenderer.RenderData(canvas, args, Colors.DarkOrange, 1, adcValues, false );
+            chartRenderer.RenderData(canvas, args, Colors.DarkOrange, 1, adcValues, false, 4, 100 );
+            chartRenderer.RenderData(canvas, args, Colors.DarkGreen, 1, turnPeriods, false, 1, 300);
             canvas.Invalidate();
         }
 
 
         public async void SendToThingspeakChannel( double counterValue )
         {
+            // from https://github.com/mobernberger/thingspeak-winrt
+
             string string1 = counterValue.ToString();
             // ThingSpeakFeed dataFeed = new ThingSpeakFeed { Field1 = string1 };
             // dataFeed = await theThingspeakClient.UpdateFeedAsync("2MAABBB6RE0H9K3X", dataFeed);
@@ -222,7 +243,7 @@ namespace Reflexzaehler
             int adcValue = ReadValueFromMCP3002(0); // IR photo transistor @ channel 0 of MCP 3002
 
             // move current value to history
-            if (adcValues.Count() >= MaxElementsAtChart) adcValues.RemoveAt(0);
+            if (adcValues.Count() >= maxAdcValuesAtChart) adcValues.RemoveAt(0);
             adcValues.Add(adcValue);
 
             // trigger state LED
@@ -250,13 +271,28 @@ namespace Reflexzaehler
                 }
                 else
                 {
-                    lastTurnIntervalLength = lastPosEdgeTime - DateTime.Now;
+                    lastTurnIntervalLength = DateTime.Now - lastPosEdgeTime;
                     lastPosEdgeTime = DateTime.Now;
 
                     overallTurns++;
-                    actualPowerCounter += (double)(1 / turnsPerKWh);
+                    actualPowerCounter = Convert.ToDouble( powerCounterValue.Text );
+                    actualPowerCounter += (double)(1 / (double) turnsPerKWh);
+
+                    powerCounterValue.Text = actualPowerCounter.ToString("F4" );
+                    turnCount.Text = overallTurns.ToString();
+
+                    // move current value to history
+                    if (turnPeriods.Count() >= maxTurnPeriodsAtChart) turnPeriods.RemoveAt(0);
+                    turnPeriods.Add(lastTurnIntervalLength.Seconds);
+
                 }
             }
+        }
+
+        private void Timer1s_Tick(object sender, object e)
+        {
+            TimeSpan timeSpan = DateTime.Now - startCounting;
+            startTime.Text = startCounting.ToString() + " - " + timeSpan.ToString(@"hh\:mm\:ss");
         }
 
         private void Timer60s_Tick(object sender, object e)
